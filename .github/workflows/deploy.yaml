@@ -18,7 +18,7 @@ jobs:
             key: ${{secrets.EC2_KEY}}
             script: |
               APP_DIR=/home/ubuntu/app
-              if [ ! -d "$APP_DIR"]; then
+              if [ ! -d "$APP_DIR" ]; then
               git clone https://github.com/ShusilLimbu/earbud_store.git $APP_DIR
               fi
               cd $APP_DIR
