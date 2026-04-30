@@ -11,4 +11,4 @@ connectDB();
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/products", require("./routes/productRoutes"));
 
-app.listen(3000, () => console.log("Server running on port: 3000"));
+app.listen(3000,"0.0.0.0",() => console.log("Server running on port: 3000"));
