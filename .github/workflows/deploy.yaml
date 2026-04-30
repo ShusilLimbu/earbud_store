@@ -23,10 +23,6 @@ jobs:
               fi
               cd $APP_DIR
               git pull origin main
-              cat <<EOF > .env
-              PORT=${{ secrets.PORT }}
-              MONGO_URI=${{ secrets.MONGO_URI }}
-              JWT_SECRET=${{ secrets.JWT_SECRET }}
-              EOF
+              printf "PORT=${{ secrets.PORT }}\nMONGO_URI=${{ secrets.MONGO_URI }}\nJWT_SECRET=${{ secrets.JWT_SECRET }}\n" > .env
               docker compose down || true
               docker compose up -d --build
