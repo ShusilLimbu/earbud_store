@@ -5,36 +5,138 @@ const crypto = require("crypto");
 
 // Signup
 exports.signup = async (req, res) => {
-  const { name, email, password } = req.body;
+  try {
+    const { name, email, password } = req.body;
 
-  const hashed = await bcrypt.hash(password, 10);
+    // 1. Basic validation
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        message: "Name, email, and password are required"
+      });
+    }
 
-  const user = await User.create({
-    name,
-    email,
-    password: hashed
-  });
+    // 2. Check password strength (basic example)
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters long"
+      });
+    }
 
-  res.json({ message: "User registered" });
+    // 3. Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
+        message: "Email already registered"
+      });
+    }
+
+    // 4. Hash password safely
+    let hashedPassword;
+    try {
+      hashedPassword = await bcrypt.hash(password, 10);
+    } catch (hashError) {
+      return res.status(500).json({
+        message: "Error while processing password"
+      });
+    }
+
+    // 5. Create user
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: hashedPassword
+    });
+
+    // 6. Success response (never send password back)
+    return res.status(201).json({
+      message: "User registered successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+
+  } catch (error) {
+    // 7. Handle MongoDB / unexpected errors
+    console.error("Signup Error:", error);
+
+    // Handle duplicate key error (extra safety)
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "Email already exists"
+      });
+    }
+
+    return res.status(500).json({
+      message: "Internal server error during signup"
+    });
+  }
 };
 
 // Login
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
+    // 1. Validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required"
+      });
+    }
 
-  if (!user) return res.status(400).json({ msg: "User not found" });
+    // 2. Find user
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-  const isMatch = await bcrypt.compare(password, user.password);
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials"
+      });
+    }
 
-  if (!isMatch) return res.status(400).json({ msg: "Invalid password" });
+    // 3. Compare password
+    let isMatch;
+    try {
+      isMatch = await bcrypt.compare(password, user.password);
+    } catch (err) {
+      return res.status(500).json({
+        message: "Error while verifying password"
+      });
+    }
 
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials"
+      });
+    }
 
-  res.json({ token });
+    // 4. Create JWT token (add expiry for security)
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" } // token expires in 1 day
+    );
+
+    // 5. Success response (never send password)
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+
+  } catch (error) {
+    console.error("Login Error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error during login"
+    });
+  }
 };
-
 // Forgot Password
 exports.forgotPassword = async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
